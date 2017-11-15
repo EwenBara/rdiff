@@ -1,0 +1,88 @@
+#!/usr/bin/bash
+
+#set -e
+#set -x
+
+readonly SCRIPTNAME=$(basename $0)
+readonly VERSION='2017111501'
+readonly AUTHOR='Ewen BARA'
+
+RFOLDER=()
+
+MNT=()
+
+trap 'at_exit' SIGINT SIGHUP SIGTERM EXIT
+
+function usage() {
+	printf "Usage :\n"
+	printf "\t%s --help\n" "$SCRIPTNAME"
+	printf "\t%s [OPTIONS]... REMOTE_FOLDERS\n\n" "$SCRIPTNAME"
+}
+
+function help() {
+	usage
+	printf "Options :\n"
+	printf "\t%-15s\t%s\n" '--usage'	'Show simple usage message'
+	printf "\t%-15s\t%s\n" '-h, --help'	'Show this help message'
+	printf "\t%-15s\t%s\n" '--version'	'Show version'
+	printf "\t%-15s\t%s\n" '--usage'	'Show simple usage message'
+	printf "\t%-15s\t%s\n" '--usage'	'Show simple usage message'
+}
+
+function version() {
+	printf "%s version %s written by %s\n" "$SCRIPTNAME" "$VERSION" "$AUTHOR"
+}
+
+function check_dependencies() {
+	:
+}
+
+function at_exit() {
+	# Unmount remote folder
+	for M in ${MNT[@]}; do
+		fusermount3 -u $M
+		rmdir $M
+	done
+}
+
+function rdiff() {
+	# Mount remote folder
+	for RF in ${RFOLDER[*]}; do
+		MNT+=("$(mktemp -d /tmp/rdiff-XXXXX)")
+		sshfs $RF ${MNT[-1]}
+	done
+
+	diff -r -u ${MNT[@]}
+}
+
+while [[ -n $1 ]]; do
+	case $1 in
+		-h | --help)
+			help
+			exit
+			;;
+		--usage)
+			usage
+			exit
+			;;
+		--version)
+			version
+			exit
+			;;
+		-*)
+			printf "ERROR: unknown parameter %s\n" "$1"
+			;;
+		*)
+			RFOLDER+=("$1")
+	esac
+	shift
+done
+
+if [[ ${#RFOLDER[@]} -lt 2 ]]; then
+	printf "ERROR: missing operand after\n"
+	exit 1
+fi
+
+check_dependencies
+rdiff
+
